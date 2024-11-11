@@ -5,7 +5,9 @@ library(caret)
 library(randomForest)
 
 #hr_data <- read.csv("C:\\Users\\HP ELITEBOOK 840 G7\\Desktop\\Seminarski UNP\\HR_Analytics.csv", header = TRUE)
-hr_data <- read_csv("C:\\Users\\Nmnj\\Desktop\\UNP projekat\\HR_Analytics.csv")
+#hr_data <- read_csv("C:\\Users\\Nmnj\\Desktop\\UNP projekat\\HR_Analytics.csv")
+
+hr_data <- read_csv("HR_Analytics.csv")
 
 summary(hr_data)
 
@@ -311,6 +313,11 @@ hr_data$Over18 <- NULL
 hr_data$EmployeeCount <- NULL
 hr_data$EmpID <- NULL
 
+#Feature engineering
+
+hr_data$YearsInCurrentRolePerAge <- hr_data$YearsInCurrentRole / hr_data$Age
+
+hr_data$ExperienceBeforeCurrentRole = hr_data$TotalWorkingYears - hr_data$YearsInCurrentRole
 
 
 ################################################################################
@@ -699,7 +706,7 @@ ggplot(data %>% filter(Attrition == "Yes"), aes(x = factor(StockOptionLevel), y 
 ################################ MODELI ########################################
 ################################################################################
 # Korelaciona matrica
-hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole)
+hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole, ExperienceBeforeCurrentRole) #YearsInCurrentRolePerAge)
 summary(hr_data.final)
 cor_matrix <- cor(hr_data.final, use = "complete.obs")
 
@@ -744,6 +751,15 @@ confusionMatrix(as.factor(y_pred_model1_class), as.factor(test_data$Attrition_bi
 control <- trainControl(method = "cv", number = 10, sampling = "up")
 
 model1_formula <- Attrition_binary ~ OverTime + Age + YearsInCurrentRole
+logistic_model <- train(model1_formula, data = train_data, method = "glm", family = "binomial", trControl = control)
+y_pred_model1 <- predict(logistic_model, test_data)
+confusionMatrix(y_pred_model1, as.factor(test_data$Attrition_binary))
+
+#Probali smo i sa YearsInCurrentRolePerAge i dobili iste rezultate
+
+control <- trainControl(method = "cv", number = 10, sampling = "up")
+
+model1_formula <- Attrition_binary ~ OverTime + YearsInCurrentRolePerAge
 logistic_model <- train(model1_formula, data = train_data, method = "glm", family = "binomial", trControl = control)
 y_pred_model1 <- predict(logistic_model, test_data)
 confusionMatrix(y_pred_model1, as.factor(test_data$Attrition_binary))
