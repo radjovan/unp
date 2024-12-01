@@ -4,9 +4,6 @@ library(corrplot)
 library(caret)
 library(randomForest)
 
-#hr_data <- read.csv("C:\\Users\\HP ELITEBOOK 840 G7\\Desktop\\Seminarski UNP\\HR_Analytics.csv", header = TRUE)
-#hr_data <- read_csv("C:\\Users\\Nmnj\\Desktop\\UNP projekat\\HR_Analytics.csv")
-
 hr_data <- read_csv("HR_Analytics.csv")
 
 summary(hr_data)
@@ -705,9 +702,11 @@ ggplot(data %>% filter(Attrition == "Yes"), aes(x = factor(StockOptionLevel), y 
 ################################################################################
 ################################ MODELI ########################################
 ################################################################################
-# Korelaciona matrica
+
 hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole, ExperienceBeforeCurrentRole) #YearsInCurrentRolePerAge)
 summary(hr_data.final)
+
+# Korelaciona matrica
 cor_matrix <- cor(hr_data.final, use = "complete.obs")
 
 # HeatMapa
@@ -726,15 +725,20 @@ set.seed(21)
 train_index <- createDataPartition(hr_data.final$Attrition_binary, 
                                    p = 0.8, 
                                    list = FALSE)
+train_data <- hr_data.final[train_index, ]
+test_data <- hr_data.final[-train_index, ]
 
 prop.table(table(hr_data.final$Attrition_binary))
-
-train_data <- hr_data.final[train_index, ]
 prop.table(table(train_data$Attrition_binary))
-
-test_data <- hr_data.final[-train_index, ]
 prop.table(table(test_data$Attrition_binary))
 
+test_plot <- ggplot(test_data, aes(x = factor(Attrition_binary))) + 
+  geom_bar() + 
+  labs(title = "Raspodela za Attrition_binary u test skupu podataka", 
+       x = "Attrition_binary", 
+       y = "Broj instanci") 
+
+print(test_plot)
 
 ########## Logisticka regresija ##########
 
@@ -747,6 +751,7 @@ y_pred_model1_class <- ifelse(y_pred_model1 > 0.5, 1, 0)
 confusionMatrix(as.factor(y_pred_model1_class), as.factor(test_data$Attrition_binary))
 
 # Poboljsanje modela
+
 
 control <- trainControl(method = "cv", number = 10, sampling = "up")
 
@@ -802,3 +807,86 @@ model3_formula <- Attrition_binary ~ OverTime + Age + YearsInCurrentRole
 random_forest_model <- train(model3_formula, data = train_data, method = "rf", trControl = control)
 y_pred_model3 <- predict(random_forest_model, test_data)
 confusionMatrix(y_pred_model3, as.factor(test_data$Attrition_binary))
+
+
+############## NN #################
+
+library("nnet")
+
+control <- trainControl(method = "cv", number = 6, sampling = "up") ## 10, 8 
+
+grid <- expand.grid(
+  size = c(2, 4, 6),      
+  decay = c(0.1, 0.01, 0.001)
+)
+
+set.seed(123)
+nn_model <- train(
+  Attrition_binary ~ .,     
+  data = train_data,       
+  method = "nnet",         
+  trControl = control,
+  tuneGrid = grid,         
+  trace = FALSE         
+)
+
+print(nn_model)
+
+predictions <- predict(nn_model, newdata = test_data)
+
+confusionMatrix(as.factor(predictions), as.factor(test_data$Attrition_binary))
+
+library(DescTools)
+library(NeuralNetTools)
+
+plotnet(mod_in = nn_model, # nnet object
+        pos_col = "darkgreen", # positive weights are shown in green
+        neg_col = "darkred", # negative weights are shown in red
+        bias = FALSE, # do not plot bias
+        circle_cex = 4, # reduce circle size (default is 5)
+        cex_val = 0.6)
+
+#najbolji rezultati za sad, bez over/undersampled podataka
+
+#oversampling train_data
+
+train_data <- hr_data.final[train_index, ]
+
+table(train_data$Attrition_binary)
+
+library("ROSE")
+
+train_data <- ROSE(Attrition_binary ~ ., data = train_data, seed = 43)$data
+
+#provera odnosa nakon oversampling-a
+table(train_data$Attrition_binary)
+
+#undersampling train_data
+
+#190 manjinskih, 400 neka bude ukupno
+train_data <- ovun.sample(Attrition_binary ~ ., data = train_data, method = "under", N = 380)$data
+
+#provera odnosa nakon undersampling-a
+table(train_data$Attrition_binary)
+
+##nisam zadovoljan kako utice na modele over i under
+
+train_data <- ovun.sample(Attrition_binary ~ ., data = train_data, method = "both", p=0.5, N=1289, seed = 1)$data
+table(train_data$Attrition_binary)
+
+#0.7007 losije
+
+
+################################# FE - Dodatno
+hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole, ExperienceBeforeCurrentRole) #YearsInCurrentRolePerAge)
+
+hr_data.final$LogMonthlyIncome <- log(hr_data.final$MonthlyIncome + 1)
+#poboljsalo NN preciznost i senzitivnost, ali je opala spcificnost, kapa skoro identicna
+
+hr_data.final$JobWorkBalanceScore <- hr_data.final$JobInvolvement + hr_data.final$WorkLifeBalance
+
+hr_data.final$IncomePerDistance <- hr_data.final$MonthlyIncome / (hr_data.final$DistanceFromHome + 1)
+
+
+
+
