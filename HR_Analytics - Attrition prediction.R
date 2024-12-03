@@ -725,6 +725,7 @@ set.seed(21)
 train_index <- createDataPartition(hr_data.final$Attrition_binary, 
                                    p = 0.8, 
                                    list = FALSE)
+
 train_data <- hr_data.final[train_index, ]
 test_data <- hr_data.final[-train_index, ]
 
@@ -839,6 +840,7 @@ confusionMatrix(as.factor(predictions), as.factor(test_data$Attrition_binary))
 library(DescTools)
 library(NeuralNetTools)
 
+
 plotnet(mod_in = nn_model, # nnet object
         pos_col = "darkgreen", # positive weights are shown in green
         neg_col = "darkred", # negative weights are shown in red
@@ -877,16 +879,23 @@ table(train_data$Attrition_binary)
 #0.7007 losije
 
 
-################################# FE - Dodatno
-hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole, ExperienceBeforeCurrentRole) #YearsInCurrentRolePerAge)
+################################# FE - Dodatno Testiranje ################################
 
-hr_data.final$LogMonthlyIncome <- log(hr_data.final$MonthlyIncome + 1)
+hr_data.final <- select(hr_data, MonthlyIncome, Attrition_binary, DistanceFromHome, Age, OverTime, StockOptionLevel, WorkLifeBalance, JobInvolvement, Education, YearsInCurrentRole, ExperienceBeforeCurrentRole)
+
+hr_data$JobSatisfaction <- as.numeric(as.character(hr_data$JobSatisfaction))
+hr_data$EnvironmentSatisfaction <- as.numeric(as.character(hr_data$EnvironmentSatisfaction))
+hr_data$RelationshipSatisfaction <- as.numeric(as.character(hr_data$RelationshipSatisfaction))
+
+#hr_data.final$SatisfactionIndex <- rowMeans(hr_data[, c("JobSatisfaction", "EnvironmentSatisfaction", "RelationshipSatisfaction")], na.rm = TRUE)
+#lose rezulatate daje
+
+#hr_data.final$LogMonthlyIncome <- log(hr_data.final$MonthlyIncome + 1)
+
 #poboljsalo NN preciznost i senzitivnost, ali je opala spcificnost, kapa skoro identicna
 
-hr_data.final$JobWorkBalanceScore <- hr_data.final$JobInvolvement + hr_data.final$WorkLifeBalance
+#hr_data.final$JobWorkBalanceScore <- hr_data.final$JobInvolvement + hr_data.final$WorkLifeBalance
 
-hr_data.final$IncomePerDistance <- hr_data.final$MonthlyIncome / (hr_data.final$DistanceFromHome + 1)
+#hr_data.final$IncomePerDistance <- hr_data.final$MonthlyIncome / (hr_data.final$DistanceFromHome + 1)
 
-
-
-
+#hr_data.final$StartAge <- log(hr_data.final$Age - hr_data.final$YearsInCurrentRole)
